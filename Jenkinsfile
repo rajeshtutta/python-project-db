@@ -103,10 +103,10 @@ stage('SonarQube Analysis') {
         steps {
             sh """
                 echo "Stopping any existing containers..."
-                docker compose down || true
+                docker-compose down || true
     
                 echo "Starting application using docker-compose..."
-                docker compose up -d --build
+                docker-compose up -d --build
     
                 echo "Waiting for app to be healthy..."
                 sleep 10
