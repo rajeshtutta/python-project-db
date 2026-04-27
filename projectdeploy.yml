@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: mahesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+            - name: MYSQL_DATABASE
+              value: testdb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: mahesh
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myuserapp
+  namespace: mahesh
+  labels:
+    app: myuserapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myuserapp
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8087"
+        prometheus.io/path: "/metrics"
+      labels:
+        app: myuserapp
+    spec:
+      containers:
+        - name: userappcont
+          image: sauravnirala/usermanagement:v1
+          ports:
+            - containerPort: 8087
+          env:
+            - name: DB_HOST
+              value: mysql
+            - name: DB_USER
+              value: root
+            - name: DB_PASSWORD
+              value: root
+            - name: DB_NAME
+              value: testdb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myuserapp-service
+  namespace: mahesh
+spec:
+  selector:
+    app: myuserapp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8087
+  type: LoadBalancer

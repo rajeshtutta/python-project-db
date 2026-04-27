@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "usermanagement"
+version = "0.0.1"
+requires-python = ">=3.9"
+dependencies = ["Flask"]
+
+[tool.setuptools.packages.find]
+include = ["services", "repositories"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["templates/*"]

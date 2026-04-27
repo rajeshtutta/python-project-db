@@ -1,0 +1,23 @@
+services:
+
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: testdb
+    ports:
+      - "3306:3306"
+
+  app:
+    image: sauravnirala/usermanagement:latest
+    depends_on:
+      - db
+    ports:
+      - "8087:8087"
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: testdb
+    restart: always
