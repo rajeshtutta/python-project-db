@@ -136,21 +136,29 @@ stage('SonarQube Analysis') {
     }
 
     stage('Deploy to Kubernetes') {
-        steps {
-            sh """
-                kubectl apply -f namespace.yml
+    steps {
+        sh '''
+            echo "Creating namespace if not exists..."
+            kubectl create namespace ${K8S_NAMESPACE} || true
 
-                cp projectdeploy.yml /tmp/all-apps.yml
+            echo "Preparing deployment file..."
+            cp projectdeploy.yml /tmp/all-apps.yml
 
-                sed -i 's|rajesh/usermanagement:v1|${TODO_IMAGE}|g' /tmp/all-apps.yml
+            sed -i "s|rajesh/usermanagement:v1|${TODO_IMAGE}|g" /tmp/all-apps.yml
 
-                kubectl apply -f /tmp/all-apps.yml
-                kubectl rollout restart deployment myuserapp -n ${K8S_NAMESPACE}
-                kubectl rollout status deployment/myuserapp -n ${K8S_NAMESPACE}
-            """
-        }
+            echo "Deploying to Kubernetes..."
+            kubectl apply -n ${K8S_NAMESPACE} -f /tmp/all-apps.yml
+
+            echo "Restarting deployment..."
+            kubectl rollout restart deployment myuserapp -n ${K8S_NAMESPACE}
+
+            echo "Checking rollout status..."
+            kubectl rollout status deployment/myuserapp -n ${K8S_NAMESPACE}
+
+            echo "Deployment successful!"
+        '''
     }
-
+}
     // ================= NEW STAGES =================
 
 stage('Install Prometheus') {
