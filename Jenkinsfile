@@ -2,17 +2,17 @@ pipeline {
 agent any
 
 environment {
-    DOCKERHUB_USER    = 'mahesh2452'
+    DOCKERHUB_USER    = 'rajeshtutta123'
     TODO_REPO         = 'usermanagement'
     IMAGE_TAG         = "${env.BUILD_NUMBER}"
 
     TODO_IMAGE        = "${DOCKERHUB_USER}/${TODO_REPO}:${IMAGE_TAG}"
     TODO_LATEST       = "${DOCKERHUB_USER}/${TODO_REPO}:latest"
 
-    GIT_REPO_URL      = 'https://github.com/Mahesh1-code141/Managenet_Credentials.git'
+    GIT_REPO_URL      = 'https://github.com/rajeshtutta/python-project-db.git'
     GIT_BRANCH        = 'main'
 
-    K8S_NAMESPACE     = 'mahesh'
+    K8S_NAMESPACE     = 'rajesh'
     CAL_PORT          = '8087'
     SONARQUBE_ENV     = 'sq'
 }
@@ -84,7 +84,7 @@ stage('SonarQube Analysis') {
         steps {
             withCredentials([usernamePassword(credentialsId: 'nexuscred', passwordVariable: 'passwd', usernameVariable: 'username')]) {
                 sh """
-                python3 -m twine upload --repository-url http://65.0.122.247:8081/repository/python/ \
+                python3 -m twine upload --repository-url http://100.48.68.130:8081/repository/python/ \
                 -u $username -p $passwd dist/*
                 """
             }
