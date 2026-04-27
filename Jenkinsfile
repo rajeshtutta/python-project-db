@@ -82,7 +82,7 @@ stage('SonarQube Analysis') {
 
     stage('Upload to Nexus') {
         steps {
-            withCredentials([usernamePassword(credentialsId: 'nexuscred', passwordVariable: 'passwd', usernameVariable: 'username')]) {
+            withCredentials([usernamePassword(credentialsId: 'nexus-cred', passwordVariable: 'passwd', usernameVariable: 'username')]) {
                 sh """
                 python3 -m twine upload --repository-url http://100.48.68.130:8081/repository/python/ \
                 -u $username -p $passwd dist/*
