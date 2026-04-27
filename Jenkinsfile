@@ -121,7 +121,7 @@ stage('SonarQube Analysis') {
         steps {
             echo "Logging in to DockerHub as ${DOCKERHUB_USER}..."
             withCredentials([usernamePassword(
-                credentialsId: 'dockerhub',
+                credentialsId: 'dockerhub-cred',
                 usernameVariable: 'DOCKER_USER',
                 passwordVariable: 'DOCKER_PASS'
             )]) {
@@ -142,7 +142,7 @@ stage('SonarQube Analysis') {
 
                 cp projectdeploy.yml /tmp/all-apps.yml
 
-                sed -i 's|sauravnirala/usermanagement:v1|${TODO_IMAGE}|g' /tmp/all-apps.yml
+                sed -i 's|rajesh/usermanagement:v1|${TODO_IMAGE}|g' /tmp/all-apps.yml
 
                 kubectl apply -f /tmp/all-apps.yml
                 kubectl rollout restart deployment myuserapp -n ${K8S_NAMESPACE}
@@ -153,51 +153,56 @@ stage('SonarQube Analysis') {
 
     // ================= NEW STAGES =================
 
-    stage('Install Prometheus') {
-        steps {
-            sh """
-            helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
-            helm repo update
+stage('Install Prometheus') {
+    steps {
+        sh """
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+        helm repo update
 
-            helm upgrade --install prometheus prometheus-community/prometheus \
-              -n monitoring --create-namespace \
-              --set alertmanager.enabled=false \
-              --set server.persistentVolume.enabled=false
-            """
-        }
-    }
-
-    stage('Install Grafana') {
-        steps {
-            sh """
-            helm repo add grafana https://grafana.github.io/helm-charts || true
-            helm repo update
-
-            helm upgrade --install grafana grafana/grafana \
-              -n monitoring \
-              --set persistence.enabled=false
-            """
-        }
-    }
-
-    stage('Expose Monitoring') {
-        steps {
-            sh """
-            nohup kubectl port-forward svc/prometheus-server 9090:80 -n monitoring --address 0.0.0.0 > prometheus.log 2>&1 &
-            nohup kubectl port-forward svc/grafana 3000:80 -n monitoring --address 0.0.0.0 > grafana.log 2>&1 &
-            """
-        }
-    }
-
-    stage('Get Grafana Password') {
-        steps {
-            sh """
-            kubectl get secret grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 --decode > grafana_pass.txt
-            cat grafana_pass.txt
-            """
-        }
+        helm upgrade --install prometheus prometheus-community/prometheus \
+          -n monitoring --create-namespace \
+          --set alertmanager.enabled=false \
+          --set server.persistentVolume.enabled=false \
+          --set server.service.type=LoadBalancer
+        """
     }
 }
 
+stage('Install Grafana') {
+    steps {
+        sh """
+        helm repo add grafana https://grafana.github.io/helm-charts || true
+        helm repo update
+
+        helm upgrade --install grafana grafana/grafana \
+          -n monitoring \
+          --set persistence.enabled=false \
+          --set service.type=LoadBalancer
+        """
+    }
 }
-modify and give me full file
+
+stage('Get Monitoring URLs') {
+    steps {
+        sh """
+        echo "Waiting for LoadBalancer External IPs..."
+        sleep 30
+
+        echo "Prometheus Service:"
+        kubectl get svc prometheus-server -n monitoring
+
+        echo "Grafana Service:"
+        kubectl get svc grafana -n monitoring
+        """
+    }
+}
+
+stage('Get Grafana Password') {
+    steps {
+        sh """
+        echo "Grafana Admin Password:"
+        kubectl get secret grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 --decode
+        echo ""
+        """
+    }
+}
