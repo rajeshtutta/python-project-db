@@ -220,7 +220,7 @@ stage('SonarQube Analysis') {
                 script {
                     def url = sh(
                         script: '''
-                        kubectl get svc zomatosvc \
+                        kubectl get svc python-svc \
                         -o jsonpath="{.status.loadBalancer.ingress[0].hostname}{.status.loadBalancer.ingress[0].ip}"
                         ''',
                         returnStdout: true
