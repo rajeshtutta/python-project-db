@@ -135,6 +135,51 @@ stage('SonarQube Analysis') {
         }
     }
 
+    stage('Install Helm') {
+            steps {
+                sh '''
+                curl -LO https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz
+                tar -zxvf helm-v3.14.0-linux-amd64.tar.gz
+                mv linux-amd64/helm ./helm
+                chmod +x ./helm
+                '''
+            }
+        }
+
+        stage('Setup Kubeconfig') {
+            steps {
+                sh '''
+                aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+                kubectl get nodes
+                '''
+            }
+        }
+
+        stage('Deploy Monitoring (Prometheus + Grafana)') {
+            steps {
+                sh '''
+                ./helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+                ./helm repo update
+
+                ./helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+                --namespace monitoring --create-namespace \
+                --set grafana.service.type=LoadBalancer
+                '''
+            }
+        }
+
+        stage('Get Grafana Password') {
+            steps {
+                sh '''
+                echo "Grafana Admin Password:"
+                kubectl get secret monitoring-grafana \
+                -n monitoring \
+                -o jsonpath="{.data.admin-password}" | base64 --decode
+                echo ""
+                '''
+            }
+        }
+
     stage('Deploy to Kubernetes') {
     steps {
         sh """
@@ -160,60 +205,67 @@ stage('SonarQube Analysis') {
         """
     }
 }
-    // ================= NEW STAGES =================
 
-stage('Install Prometheus') {
-    steps {
-        sh """
-        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
-        helm repo update
+        stage('Wait for LoadBalancer') {
+            steps {
+                sh '''
+                echo "Waiting for LoadBalancer to be ready..."
+                sleep 60
+                '''
+            }
+        }
 
-        helm upgrade --install prometheus prometheus-community/prometheus \
-          -n monitoring --create-namespace \
-          --set alertmanager.enabled=false \
-          --set server.persistentVolume.enabled=false \
-          --set server.service.type=LoadBalancer
-        """
+        stage('Get Application URL') {
+            steps {
+                script {
+                    def url = sh(
+                        script: '''
+                        kubectl get svc zomatosvc \
+                        -o jsonpath="{.status.loadBalancer.ingress[0].hostname}{.status.loadBalancer.ingress[0].ip}"
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    env.APP_URL = url
+                    echo "Application URL: ${env.APP_URL}"
+                }
+            }
+        }
     }
-}
 
-stage('Install Grafana') {
-    steps {
-        sh """
-        helm repo add grafana https://grafana.github.io/helm-charts || true
-        helm repo update
+    post {
 
-        helm upgrade --install grafana grafana/grafana \
-          -n monitoring \
-          --set persistence.enabled=false \
-          --set service.type=LoadBalancer
-        """
+        success {
+            emailext(
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+Build SUCCESS 🎉
+
+Application URL:
+http://${env.APP_URL}
+
+Jenkins URL:
+${env.BUILD_URL}
+""",
+                to: "${RECIPIENTS}"
+            )
+        }
+
+        failure {
+            emailext(
+                subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+Build FAILED ❌
+
+Check logs:
+${env.BUILD_URL}
+""",
+                to: "${RECIPIENTS}"
+            )
+        }
+
+        always {
+            archiveArtifacts artifacts: 'zomato-build.zip', fingerprint: true
+        }
     }
-}
-
-stage('Get Monitoring URLs') {
-    steps {
-        sh """
-        echo "Waiting for LoadBalancer External IPs..."
-        sleep 30
-
-        echo "Prometheus Service:"
-        kubectl get svc prometheus-server -n monitoring
-
-        echo "Grafana Service:"
-        kubectl get svc grafana -n monitoring
-        """
-    }
-}
-
-stage('Get Grafana Password') {
-    steps {
-        sh """
-        echo "Grafana Admin Password:"
-        kubectl get secret grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 --decode
-        echo ""
-        """
-    }
-}
-}
 }
