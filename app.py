@@ -49,5 +49,5 @@ def delete_data(id):
     return render_template('delete.html', id=id)
 
 
-if __name__ == '__main__':
-    app.run(port=8087, host='0.0.0.0')
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)
