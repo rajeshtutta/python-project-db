@@ -77,7 +77,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: myuserapp-service
+  name: python-svc
   namespace: rajesh
 spec:
   selector:
